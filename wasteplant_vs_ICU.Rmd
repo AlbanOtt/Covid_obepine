@@ -20,107 +20,110 @@ library(sf)
 library(raster)
 library(OpenStreetMap)
 library(dplyr)
-
+library(lubridate)
 ```
 
 
-## Load data
+<!-- ## Load data -->
 
-### wastewater
+<!-- ### wastewater -->
 
-```{r}
-stations = read.csv2("./data/obepine/19-04-2021-stations.csv",dec=".")
-dim(stations)
+<!-- ```{r} -->
+<!-- stations = read.csv2("./data/obepine/19-04-2021-stations.csv",dec=".") -->
+<!-- dim(stations) -->
 
-#keep only high quality data
-stations_HQ = stations %>%
-  # arrange(desc(IPQDE)) %>% 
-  # head()
-  filter(IPQDE==2)
-dim(stations_HQ)
+<!-- #keep only high quality data -->
+<!-- stations_HQ = stations %>% -->
+<!--   # arrange(desc(IPQDE)) %>%  -->
+<!--   # head() -->
+<!--   filter(IPQDE==2) -->
+<!-- dim(stations_HQ) -->
 
-head(stations_HQ)
-```
+<!-- head(stations_HQ) -->
+<!-- ``` -->
 
-### Laposte
+<!-- ### Laposte -->
 
-```{r}
-laposte = read.csv2("./data/laposte/laposte_hexasmal.csv") %>% 
-  mutate(Longitude = sub(pattern = "^(.*),(.*)$", replacement = "\\1", x = coordonnees_gps) %>% as.numeric()) %>% 
-  mutate(Latitude = sub(pattern = "^(.*),(.*)$", replacement = "\\2", x = coordonnees_gps) %>% as.numeric())
+<!-- ```{r} -->
+<!-- laposte = read.csv2("./data/laposte/laposte_hexasmal.csv") %>%  -->
+<!--   mutate(Longitude = sub(pattern = "^(.*),(.*)$", replacement = "\\1", x = coordonnees_gps) %>% as.numeric()) %>%  -->
+<!--   mutate(Latitude = sub(pattern = "^(.*),(.*)$", replacement = "\\2", x = coordonnees_gps) %>% as.numeric()) -->
 
-head(laposte)
-```
+<!-- head(laposte) -->
+<!-- ``` -->
 
-### Associate stations to the closet city
+<!-- ### Associate stations to the closet city -->
 
-```{r}
-indiv_stations = stations %>% 
-  select(Station, Code_Sandre, Longitude_station, Latitude_station) %>% 
-  distinct() %>% 
-  filter(!is.na(Longitude_station)) %>% 
-  filter(!is.na(Latitude_station))
-```
+<!-- ```{r} -->
+<!-- indiv_stations = stations %>%  -->
+<!--   select(Station, Code_Sandre, Longitude_station, Latitude_station) %>%  -->
+<!--   distinct() %>%  -->
+<!--   filter(!is.na(Longitude_station)) %>%  -->
+<!--   filter(!is.na(Latitude_station)) -->
+<!-- ``` -->
 
-search for the closet city according to laposte and assume it belongs there
-```{r}
+<!-- search for the closet city according to laposte and assume it belongs there -->
+<!-- ```{r} -->
 
-distgeo = function(poste, Longitude_station, Latitude_station){
-  distance=distm(c(poste["Longitude"], poste["Latitude"]),
-                 c(Longitude_station, Latitude_station))
-  return(distance)
-}
-
-
-indiv_stations$Code_commune_INSEE=""
-for(i in 1:nrow(indiv_stations)){
-  Latitude_station=indiv_stations[i,"Longitude_station"]#the data titles are false
-  Longitude_station=indiv_stations[i,"Latitude_station"]#the data titles are false
-  dist=apply(laposte[,c("Longitude","Latitude")],1,distgeo, Longitude_station=Longitude_station, Latitude_station=Latitude_station)
-  mindist=which.min(dist)
-  indiv_stations[i,"Code_commune_INSEE"]=laposte[mindist,"Code_commune_INSEE"]
-}
-```
+<!-- distgeo = function(poste, Longitude_station, Latitude_station){ -->
+<!--   distance=distm(c(poste["Longitude"], poste["Latitude"]), -->
+<!--                  c(Longitude_station, Latitude_station)) -->
+<!--   return(distance) -->
+<!-- } -->
 
 
-
-join the 2 tables
-```{r}
-stations_laposte = stations %>% 
-  left_join(indiv_stations) %>% 
-  left_join(laposte)
-```
+<!-- indiv_stations$Code_commune_INSEE="" -->
+<!-- for(i in 1:nrow(indiv_stations)){ -->
+<!--   Latitude_station=indiv_stations[i,"Longitude_station"]#the data titles are false -->
+<!--   Longitude_station=indiv_stations[i,"Latitude_station"]#the data titles are false -->
+<!--   dist=apply(laposte[,c("Longitude","Latitude")],1,distgeo, Longitude_station=Longitude_station, Latitude_station=Latitude_station) -->
+<!--   mindist=which.min(dist) -->
+<!--   indiv_stations[i,"Code_commune_INSEE"]=laposte[mindist,"Code_commune_INSEE"] -->
+<!-- } -->
+<!-- ``` -->
 
 
 
-Add department based on zip code
-```{r}
-stations_laposte = stations_laposte %>% 
-  mutate(Departement=as.numeric(sub(pattern = "[0-9]{3}$", replacement = "", x = Code_postal)))
-```
+<!-- join the 2 tables -->
+<!-- ```{r} -->
+<!-- stations_laposte = stations %>%  -->
+<!--   left_join(indiv_stations) %>%  -->
+<!--   left_join(laposte) -->
+<!-- ``` -->
+
+
+
+<!-- Add department based on zip code -->
+<!-- ```{r} -->
+<!-- stations_laposte = stations_laposte %>%  -->
+<!--   mutate(Departement=as.numeric(sub(pattern = "[0-9]{3}$", replacement = "", x = Code_postal))) -->
+<!-- ``` -->
 
 
 ### Load the ICU data
 ```{r}
-ICU = read.csv("./data/ICU/tab-par-departement-etalab.csv") %>% 
-  rename(taux_occup=to)
+ICU = read.csv("./data/ICU/tab-par-departement-etalab.csv") %>%
+  rename(taux_occup=to) %>% 
+  rename(Departement=dep) %>%
+  mutate(Departement=as.character(Departement)) %>% 
+  mutate(date=ymd(date))
 ```
 
 
 
-## Save the table
-```{r}
-write.csv2(stations_laposte, file = "./output/stations_laposte.csv")
-```
+<!-- ## Save the table -->
+<!-- ```{r} -->
+<!-- write.csv2(stations_laposte, file = "./output/stations_laposte.csv") -->
+<!-- ``` -->
 
 
 
 ## visualization
 
 
-<!-- ```{r} -->
-<!-- stations_laposte=read.csv2(file = "./output/stations_laposte.csv") -->
-<!-- ``` -->
+```{r}
+stations_laposte=read.csv2(file = "./output/stations_laposte.csv")
+```
 
 
 ```{r}
@@ -134,22 +137,30 @@ decorate_station_by_departement = stations_laposte %>%
 
 stations_laposte=stations_laposte %>% 
   mutate(IPQDE_c=as.character(IPQDE)) %>% 
-  left_join(decorate_station_by_departement)
+  left_join(decorate_station_by_departement) %>% 
+  mutate(Date=ymd(Date)) %>% 
+  mutate(Departement=as.character(Departement)) %>% 
+  as.data.frame()
+
 ```
 
 
 ```{r, fig.height=80, fig.width=5}
+stations_laposte_ICU = bind_rows(stations_laposte,
+                                 ICU)
 
-ggplot(stations_laposte, aes_string("Date","Indicateur"))+
+
+ggplot(stations_laposte_ICU, aes_string("Date","Indicateur"))+
   geom_point(aes_string(group="Code_Sandre", col="col_by_station", shape="IPQDE_c"))+
-  geom_line(aes_string(group="Code_Sandre", col="col_by_station", shape="IPQDE_c"))+
-  geom_point(data=ICU,aes_string(x="date", y="taux_occup"), col="red")+
-  geom_line(data=ICU,aes_string(x="date", y="taux_occup"), col="red")+
+  geom_line(aes_string(group="Code_Sandre", col="col_by_station"))+
+  geom_point(aes_string(x="date", y="taux_occup"), col="red")+
+  geom_line(aes_string(x="date", y="taux_occup"), col="red")+
   scale_colour_viridis_d()+
   guides( color = FALSE)+
-  facet_grid(Departement~.)
+  facet_grid(Departement~.)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
   
-
+View(stations_laposte_ICU)
 ```
 
 
