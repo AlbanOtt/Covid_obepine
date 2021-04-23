@@ -21,6 +21,7 @@ library(raster)
 library(OpenStreetMap)
 library(dplyr)
 library(lubridate)
+library(gtools)
 ```
 
 
@@ -104,7 +105,7 @@ library(lubridate)
 ```{r}
 ICU = read.csv2("./data/ICU/donnees-hospitalieres-covid19-2021-04-23-20h12.csv") %>%
   rename(Departement=dep) %>%
-  mutate(Departement=as.character(Departement)) %>% 
+  mutate(Departement=sub(pattern = "^0", replacement = "", x=Departement)) %>% 
   mutate(Date=ymd(jour)) %>% 
   filter(sexe==0)
 
@@ -144,7 +145,6 @@ stations_laposte=stations_laposte %>%
   mutate(Date=ymd(Date)) %>% 
   mutate(Departement=as.character(Departement)) %>% 
   as.data.frame()
-
 ```
 
 ```{r}
@@ -174,7 +174,8 @@ ggplot(stations_laposte_ICU, aes_string("Date","Indicateur"))+
 
 
 ```{r, results='asis'}
-for(dep in unique(stations_laposte_ICU$Departement)){
+for(dep in mixedsort(unique(stations_laposte_ICU$Departement))){
+  if(!is.na(dep)){
   cat(paste0("\n\n\n### ",dep,"\n\n"))
   
   p=ggplot(stations_laposte_ICU %>% filter(Departement==dep), aes_string("Date","Indicateur"))+
@@ -184,7 +185,6 @@ for(dep in unique(stations_laposte_ICU$Departement)){
     geom_line(aes_string(y="rea"), col="red")+
     scale_colour_viridis_d()+
     guides( color = FALSE)+
-    # facet_grid(Departement~., scales = "free_y")+
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
     scale_y_continuous(
       name = "Obepine",
@@ -193,8 +193,9 @@ for(dep in unique(stations_laposte_ICU$Departement)){
     ggtitle(paste0("departement: ",dep))
   
   print(p)
-  
+
   cat("\n\n")
+  }
 }
 ```
 
