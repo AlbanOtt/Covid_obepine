@@ -1,0 +1,5 @@
+﻿Colonne;Type;Description_FR;Description_EN;Exemple
+epci;integer;Code EPCI;EPCI code;200023414
+grand_nom_metropole;string;Nom de la métropole;Name of the metropolis;Métropole Rouen Normandie
+to;float;nombre de patients COVID+ sur le nombre total de lits occupés en réanimation;Number of COVID-positive patients out of the total number of beds occupied in intensive care units;26.25
+date;string($date);Date;Date;2020-10-14

@@ -1,0 +1,155 @@
+---
+title: "A clean and uncluttered template"
+author: "Alban Ott"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+mail: "ott.alban@gmail.com"
+output:
+  epuRate::epurate:
+    toc: TRUE
+    number_sections: FALSE
+    code_folding: "hide"
+---
+
+## load packages
+
+```{r}
+library(geosphere)
+library(ggplot2); theme_set(theme_bw())
+library(ggiraph)
+library(sf)
+library(raster)
+library(OpenStreetMap)
+library(dplyr)
+
+```
+
+
+## Load data
+
+### wastewater
+
+```{r}
+stations = read.csv2("./data/obepine/19-04-2021-stations.csv",dec=".")
+dim(stations)
+
+#keep only high quality data
+stations_HQ = stations %>%
+  # arrange(desc(IPQDE)) %>% 
+  # head()
+  filter(IPQDE==2)
+dim(stations_HQ)
+
+head(stations_HQ)
+```
+
+### Laposte
+
+```{r}
+laposte = read.csv2("./data/laposte/laposte_hexasmal.csv") %>% 
+  mutate(Longitude = sub(pattern = "^(.*),(.*)$", replacement = "\\1", x = coordonnees_gps) %>% as.numeric()) %>% 
+  mutate(Latitude = sub(pattern = "^(.*),(.*)$", replacement = "\\2", x = coordonnees_gps) %>% as.numeric())
+
+head(laposte)
+```
+
+### Associate stations to the closet city
+
+```{r}
+indiv_stations = stations %>% 
+  select(Station, Code_Sandre, Longitude_station, Latitude_station) %>% 
+  distinct() %>% 
+  filter(!is.na(Longitude_station)) %>% 
+  filter(!is.na(Latitude_station))
+```
+
+search for the closet city according to laposte and assume it belongs there
+```{r}
+
+distgeo = function(poste, Longitude_station, Latitude_station){
+  distance=distm(c(poste["Longitude"], poste["Latitude"]),
+                 c(Longitude_station, Latitude_station))
+  return(distance)
+}
+
+
+indiv_stations$Code_commune_INSEE=""
+for(i in 1:nrow(indiv_stations)){
+  Latitude_station=indiv_stations[i,"Longitude_station"]#the data titles are false
+  Longitude_station=indiv_stations[i,"Latitude_station"]#the data titles are false
+  dist=apply(laposte[,c("Longitude","Latitude")],1,distgeo, Longitude_station=Longitude_station, Latitude_station=Latitude_station)
+  mindist=which.min(dist)
+  indiv_stations[i,"Code_commune_INSEE"]=laposte[mindist,"Code_commune_INSEE"]
+}
+```
+
+
+
+join the 2 tables
+```{r}
+stations_laposte = stations %>% 
+  left_join(indiv_stations) %>% 
+  left_join(laposte)
+```
+
+
+
+Add department based on zip code
+```{r}
+stations_laposte = stations_laposte %>% 
+  mutate(Departement=as.numeric(sub(pattern = "[0-9]{3}$", replacement = "", x = Code_postal)))
+```
+
+
+### Load the ICU data
+```{r}
+ICU = read.csv("./data/ICU/tab-par-departement-etalab.csv") %>% 
+  rename(taux_occup=to)
+```
+
+
+
+## Save the table
+```{r}
+write.csv2(stations_laposte, file = "./output/stations_laposte.csv")
+```
+
+
+
+## visualization
+
+
+<!-- ```{r} -->
+<!-- stations_laposte=read.csv2(file = "./output/stations_laposte.csv") -->
+<!-- ``` -->
+
+
+```{r}
+
+decorate_station_by_departement = stations_laposte %>% 
+  distinct(Departement, Station) %>% 
+  group_by(Departement) %>% 
+  mutate(col_by_station=as.character(1:n())) %>% 
+  ungroup() %>% 
+  arrange(Departement)
+
+stations_laposte=stations_laposte %>% 
+  mutate(IPQDE_c=as.character(IPQDE)) %>% 
+  left_join(decorate_station_by_departement)
+```
+
+
+```{r, fig.height=80, fig.width=5}
+
+ggplot(stations_laposte, aes_string("Date","Indicateur"))+
+  geom_point(aes_string(group="Code_Sandre", col="col_by_station", shape="IPQDE_c"))+
+  geom_line(aes_string(group="Code_Sandre", col="col_by_station", shape="IPQDE_c"))+
+  geom_point(data=ICU,aes_string(x="date", y="taux_occup"), col="red")+
+  geom_line(data=ICU,aes_string(x="date", y="taux_occup"), col="red")+
+  scale_colour_viridis_d()+
+  guides( color = FALSE)+
+  facet_grid(Departement~.)
+  
+
+```
+
+
