@@ -52,7 +52,7 @@ library(lubridate)
 <!-- head(laposte) -->
 <!-- ``` -->
 
-<!-- ### Associate stations to the closet city -->
+<!-- ### Associate stations to the closest city -->
 
 <!-- ```{r} -->
 <!-- indiv_stations = stations %>%  -->
@@ -102,11 +102,14 @@ library(lubridate)
 
 ### Load the ICU data
 ```{r}
-ICU = read.csv("./data/ICU/tab-par-departement-etalab.csv") %>%
-  rename(taux_occup=to) %>% 
+ICU = read.csv2("./data/ICU/donnees-hospitalieres-covid19-2021-04-23-20h12.csv") %>%
   rename(Departement=dep) %>%
   mutate(Departement=as.character(Departement)) %>% 
-  mutate(date=ymd(date))
+  mutate(Date=ymd(jour)) %>% 
+  filter(sexe==0)
+
+
+
 ```
 
 
@@ -118,7 +121,7 @@ ICU = read.csv("./data/ICU/tab-par-departement-etalab.csv") %>%
 
 
 
-## visualization
+## visualization {.tabset}
 
 
 ```{r}
@@ -144,23 +147,55 @@ stations_laposte=stations_laposte %>%
 
 ```
 
-
-```{r, fig.height=80, fig.width=5}
+```{r}
 stations_laposte_ICU = bind_rows(stations_laposte,
                                  ICU)
+```
 
 
+### All departement
+
+```{r, fig.height=320, fig.width=10}
 ggplot(stations_laposte_ICU, aes_string("Date","Indicateur"))+
   geom_point(aes_string(group="Code_Sandre", col="col_by_station", shape="IPQDE_c"))+
   geom_line(aes_string(group="Code_Sandre", col="col_by_station"))+
-  geom_point(aes_string(x="date", y="taux_occup"), col="red")+
-  geom_line(aes_string(x="date", y="taux_occup"), col="red")+
+  geom_point(aes_string(y="rea"), col="red")+
+  geom_line(aes_string(y="rea"), col="red")+
   scale_colour_viridis_d()+
   guides( color = FALSE)+
-  facet_grid(Departement~.)+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  facet_grid(Departement~., scales = "free_y")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+   scale_y_continuous(
+     name = "Obepine",
+     sec.axis = sec_axis(~.*1, name="# pers réa")
+   )
   
-View(stations_laposte_ICU)
+```
+
+
+```{r, results='asis'}
+for(dep in unique(stations_laposte_ICU$Departement)){
+  cat(paste0("\n\n\n### ",dep,"\n\n"))
+  
+  p=ggplot(stations_laposte_ICU %>% filter(Departement==dep), aes_string("Date","Indicateur"))+
+    geom_point(aes_string(group="Code_Sandre", col="col_by_station", shape="IPQDE_c"))+
+    geom_line(aes_string(group="Code_Sandre", col="col_by_station"))+
+    geom_point(aes_string(y="rea"), col="red")+
+    geom_line(aes_string(y="rea"), col="red")+
+    scale_colour_viridis_d()+
+    guides( color = FALSE)+
+    # facet_grid(Departement~., scales = "free_y")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+    scale_y_continuous(
+      name = "Obepine",
+      sec.axis = sec_axis(~.*1, name="# pers réa")
+    )+
+    ggtitle(paste0("departement: ",dep))
+  
+  print(p)
+  
+  cat("\n\n")
+}
 ```
 
 
